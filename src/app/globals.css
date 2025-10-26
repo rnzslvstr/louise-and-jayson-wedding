@@ -1,26 +1,119 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* ==== Louise & Jayson Wedding – Light Palette ==== */
+/* Your palette */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --c-shell: #D2C3BE;   /* soft neutral */
+  --c-rose:  #B5958C;   /* primary accents / buttons */
+  --c-peach: #E8C8B6;   /* light surfaces, table headers */
+  --c-sand:  #DAAB96;   /* hover / secondary */
+  --c-cream: #EDD5C0;   /* page background */
+
+  --text-main: #2f2b28; /* readable dark text */
+  --text-muted: #665e5a;
+  --border: rgba(0,0,0,0.12);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Global reset to light theme */
+html, body {
+  background: var(--c-cream);
+  color: var(--text-main);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Card-ish surface */
+.surface {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem; /* rounded-xl */
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table thead {
+  background: var(--c-peach);
+}
+.table th, .table td {
+  padding: 0.5rem 0.75rem; /* p-2 ~ p-3 */
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+.table tr:nth-child(even) td {
+  background: #fffaf6;
+}
+
+/* Inputs */
+.input {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 0.5rem; /* rounded-lg */
+  padding: 0.5rem 0.75rem;
+  outline: none;
+}
+.input:focus {
+  border-color: var(--c-rose);
+  box-shadow: 0 0 0 3px rgba(181,149,140,0.25);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem; /* rounded-lg */
+  padding: 0.5rem 0.875rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: transform .02s ease, background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+  background: var(--c-rose);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--c-sand);
+}
+
+.btn-neutral {
+  background: #fff;
+  color: var(--text-main);
+  border-color: var(--border);
+}
+.btn-neutral:hover {
+  border-color: var(--c-rose);
+}
+
+.btn-danger {
+  background: #fff;
+  color: #9a1f1f;
+  border-color: rgba(154,31,31,0.25);
+}
+.btn-danger:hover {
+  background: #fff2f2;
+  border-color: rgba(154,31,31,0.45);
+}
+
+/* Minor typographic tweaks */
+.h1 { font-size: 1.5rem; line-height: 2rem; font-weight: 800; }
+.h2 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 700; }
+.muted { color: var(--text-muted); }
+
+/* Spacing helpers for pages using Tailwind + these utilities */
+.page {
+  padding: 1.5rem;
+}
+.container {
+  max-width: 72rem; /* ~max-w-6xl */
+  margin-left: auto;
+  margin-right: auto;
+}
+.section {
+  margin-top: 1.5rem;
 }
