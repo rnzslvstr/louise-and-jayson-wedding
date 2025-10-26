@@ -5,7 +5,35 @@ import supabaseAdmin from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   try {
-    const { household_id, decisions, submitter_email, found_member_id } = await req.json();
+    const {
+      household_id,
+      decisions,
+      submitter_email,
+      found_member_id,
+      challenge_a,
+      challenge_b,
+      challenge_answer,
+      company_honeypot
+    } = await req.json();
+
+    if (typeof company_honeypot === "string" && company_honeypot.trim() !== "") {
+      return NextResponse.json(
+        { ok: false, error: "Invalid submission" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof challenge_a !== "number" ||
+      typeof challenge_b !== "number" ||
+      typeof challenge_answer !== "number" ||
+      challenge_a + challenge_b !== challenge_answer
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Bot check failed" },
+        { status: 400 }
+      );
+    }
 
     if (!household_id || !Array.isArray(decisions) || decisions.length === 0) {
       return NextResponse.json(

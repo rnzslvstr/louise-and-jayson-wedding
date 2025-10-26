@@ -1,7 +1,6 @@
-// src/app/rsvp/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Member = { id: string; first_name: string; last_name: string; email: string | null };
@@ -10,26 +9,38 @@ type Household = { id: string; label: string | null; search_key: string | null }
 export default function RSVPPage() {
   const router = useRouter();
 
-  // step state: 1=name, 2=decisions, 3=email
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // step 1
   const [fullName, setFullName] = useState("");
   const [lookupError, setLookupError] = useState<string | null>(null);
 
-  // loaded after step 1
   const [household, setHousehold] = useState<Household | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [rsvps, setRsvps] = useState<Record<string, string>>({});
   const [foundMemberId, setFoundMemberId] = useState<string | undefined>(undefined);
 
-  // step 2
   const [decisions, setDecisions] = useState<Record<string, "accept" | "decline">>({});
 
-  // step 3
   const [email, setEmail] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [a, setA] = useState<number>(0);
+  const [b, setB] = useState<number>(0);
+  const [answer, setAnswer] = useState<string>("");
+
+  const [honeypot, setHoneypot] = useState<string>("");
+
+  useEffect(() => {
+    if (step === 3) {
+      const ra = Math.floor(Math.random() * 8) + 2; // 2..9
+      const rb = Math.floor(Math.random() * 8) + 2; // 2..9
+      setA(ra);
+      setB(rb);
+      setAnswer("");
+      setHoneypot("");
+    }
+  }, [step]);
 
   async function doLookup(e: React.FormEvent) {
     e.preventDefault();
@@ -54,13 +65,10 @@ export default function RSVPPage() {
     setRsvps(j.rsvps || {});
     setFoundMemberId(j.found_member_id);
 
-    // prefill decisions with previous rsvp values if exist
     const prefills: Record<string, "accept" | "decline"> = {};
     for (const m of j.members || []) {
       const existing = j.rsvps?.[m.id];
-      if (existing === "accept" || existing === "decline") {
-        prefills[m.id] = existing;
-      }
+      if (existing === "accept" || existing === "decline") prefills[m.id] = existing;
     }
     setDecisions(prefills);
     setStep(2);
@@ -74,6 +82,18 @@ export default function RSVPPage() {
     e.preventDefault();
     if (!household) return;
     setSubmitError(null);
+
+    const parsedAnswer = Number(answer);
+    if (!Number.isFinite(parsedAnswer)) {
+      setSubmitError("Please answer the math question.");
+      return;
+    }
+
+    if (Object.keys(decisions).length === 0) {
+      setSubmitError("Please choose Accept or Decline for at least one person.");
+      return;
+    }
+
     setSubmitting(true);
 
     const payload = {
@@ -81,13 +101,11 @@ export default function RSVPPage() {
       decisions: Object.entries(decisions).map(([member_id, status]) => ({ member_id, status })),
       submitter_email: email || null,
       found_member_id: foundMemberId,
+      challenge_a: a,
+      challenge_b: b,
+      challenge_answer: parsedAnswer,
+      company_honeypot: honeypot
     };
-
-    if (payload.decisions.length === 0) {
-      setSubmitError("Please choose Accept or Decline for at least one person.");
-      setSubmitting(false);
-      return;
-    }
 
     const res = await fetch("/api/rsvp/submit", {
       method: "POST",
@@ -110,16 +128,14 @@ export default function RSVPPage() {
       <h1 className="h1">RSVP</h1>
       <p className="muted mt-1">Please complete the steps below.</p>
 
-      {/* Stepper indicator */}
       <div className="mt-4 flex items-center gap-2">
         <StepDot active={step >= 1} label="Your Name" />
         <span className="muted">—</span>
         <StepDot active={step >= 2} label="Household" />
         <span className="muted">—</span>
-        <StepDot active={step >= 3} label="Email" />
+        <StepDot active={step >= 3} label="Bot Check & Email" />
       </div>
 
-      {/* STEP 1 */}
       {step === 1 && (
         <section className="section surface p-4">
           <form onSubmit={doLookup} className="space-y-4">
@@ -143,16 +159,13 @@ export default function RSVPPage() {
         </section>
       )}
 
-      {/* STEP 2 */}
       {step === 2 && household && (
         <section className="section surface p-4">
           <div className="flex items-center justify-between">
             <h2 className="h2">
               {household.label ?? household.search_key ?? "Household"}
             </h2>
-            <button className="btn btn-neutral" onClick={() => setStep(1)}>
-              Change name
-            </button>
+            <button className="btn btn-neutral" onClick={() => setStep(1)}>Change name</button>
           </div>
 
           <div className="mt-4 overflow-x-auto">
@@ -166,9 +179,7 @@ export default function RSVPPage() {
               <tbody>
                 {members.map((m) => (
                   <tr key={m.id}>
-                    <td>
-                      {m.first_name} {m.last_name}
-                    </td>
+                    <td>{m.first_name} {m.last_name}</td>
                     <td>
                       <div className="flex gap-3">
                         <label className="inline-flex items-center gap-2">
@@ -194,28 +205,19 @@ export default function RSVPPage() {
                   </tr>
                 ))}
                 {members.length === 0 && (
-                  <tr>
-                    <td colSpan={2} className="muted p-3">
-                      No members in this household yet.
-                    </td>
-                  </tr>
+                  <tr><td colSpan={2} className="muted p-3">No members in this household yet.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <button className="btn btn-neutral" onClick={() => setStep(1)}>
-              Back
-            </button>
-            <button className="btn btn-primary" onClick={() => setStep(3)}>
-              Continue
-            </button>
+            <button className="btn btn-neutral" onClick={() => setStep(1)}>Back</button>
+            <button className="btn btn-primary" onClick={() => setStep(3)}>Continue</button>
           </div>
         </section>
       )}
 
-      {/* STEP 3 */}
       {step === 3 && household && (
         <section className="section surface p-4">
           {submitError && (
@@ -224,20 +226,49 @@ export default function RSVPPage() {
             </div>
           )}
           <form onSubmit={doSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium">Your email</label>
-              <input
-                className="input mt-1"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <p className="muted text-xs mt-1">
-                We’ll send a confirmation—RSVP is saved even if email delivery fails.
-              </p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium">Your email</label>
+                <input
+                  className="input mt-1"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <p className="muted text-xs mt-1">RSVP saves instantly; email is just for confirmation.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Quick bot check</label>
+                <div className="mt-1 flex items-center gap-2">
+                  <span>{a}</span>
+                  <span>+</span>
+                  <span>{b}</span>
+                  <span>=</span>
+                  <input
+                    className="input"
+                    placeholder="Answer"
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    inputMode="numeric"
+                    required
+                  />
+                </div>
+              </div>
             </div>
+
+            <input
+              type="text"
+              className="input"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              style={{ position: "absolute", opacity: 0, height: 0, width: 0, pointerEvents: "none" }}
+              aria-hidden="true"
+              tabIndex={-1}
+              placeholder="Company"
+            />
+
             <div className="flex items-center justify-between">
               <button
                 type="button"
