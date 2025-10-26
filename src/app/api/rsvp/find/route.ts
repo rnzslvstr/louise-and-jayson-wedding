@@ -1,16 +1,8 @@
-// src/app/api/rsvp/find/route.ts
+export const runtime = 'nodejs';
+
 import { NextResponse } from "next/server";
 import supabaseAdmin from "@/lib/supabaseAdmin";
 
-/**
- * Body: { full_name: string }
- * Returns: { ok: true, household, members } or { ok: false, error }
- *
- * Simple name match:
- *  - Split full_name on spaces → first token = first_name, last token = last_name
- *  - Case-insensitive search in members
- *  - If multiple matches exist, returns the first household found
- */
 export async function POST(req: Request) {
   try {
     const { full_name } = await req.json();
@@ -20,8 +12,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    // naive parsing: first word = first, last word = last
     const parts = full_name.trim().split(/\s+/);
     if (parts.length < 2) {
       return NextResponse.json(
@@ -40,13 +30,7 @@ export async function POST(req: Request) {
       .limit(1)
       .maybeSingle();
 
-    if (memberErr) {
-      return NextResponse.json(
-        { ok: false, error: memberErr.message },
-        { status: 500 }
-      );
-    }
-
+    if (memberErr) return NextResponse.json({ ok: false, error: memberErr.message }, { status: 500 });
     if (!memberMatch) {
       return NextResponse.json(
         { ok: false, error: "We couldn't find your name. Please check spelling or contact the couple." },
@@ -61,22 +45,15 @@ export async function POST(req: Request) {
       .select("id, label, search_key, created_at")
       .eq("id", household_id)
       .single();
-
-    if (hErr) {
-      return NextResponse.json({ ok: false, error: hErr.message }, { status: 500 });
-    }
+    if (hErr) return NextResponse.json({ ok: false, error: hErr.message }, { status: 500 });
 
     const { data: members, error: mErr } = await supabaseAdmin
       .from("members")
       .select("id, first_name, last_name, email")
       .eq("household_id", household_id)
       .order("created_at", { ascending: true });
+    if (mErr) return NextResponse.json({ ok: false, error: mErr.message }, { status: 500 });
 
-    if (mErr) {
-      return NextResponse.json({ ok: false, error: mErr.message }, { status: 500 });
-    }
-
-    // Also include current RSVP statuses (if any)
     const memberIds = (members ?? []).map((m) => m.id);
     let rsvps: Record<string, string> = {};
     if (memberIds.length) {
@@ -84,9 +61,7 @@ export async function POST(req: Request) {
         .from("rsvps")
         .select("member_id, status")
         .in("member_id", memberIds);
-      if (rErr) {
-        return NextResponse.json({ ok: false, error: rErr.message }, { status: 500 });
-      }
+      if (rErr) return NextResponse.json({ ok: false, error: rErr.message }, { status: 500 });
       rsvps = Object.fromEntries((rsvpRows ?? []).map((r) => [r.member_id, r.status]));
     }
 
@@ -98,9 +73,6 @@ export async function POST(req: Request) {
       found_member_id: memberMatch.id,
     });
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message ?? "Lookup failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: e?.message ?? "Lookup failed" }, { status: 500 });
   }
 }

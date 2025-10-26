@@ -1,4 +1,5 @@
-// src/app/api/admin/members/route.ts
+export const runtime = 'nodejs';
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { COOKIE_NAME, verifySession } from "@/lib/auth";
@@ -13,7 +14,6 @@ async function requireSession() {
   return session;
 }
 
-// GET: list members, optional ?household_id=...
 export async function GET(req: Request) {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -35,7 +35,6 @@ export async function GET(req: Request) {
   return NextResponse.json({ ok: true, members: data });
 }
 
-// POST: create member {household_id, first_name, last_name, email?}
 export async function POST(req: Request) {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -65,7 +64,6 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, member: data });
 }
 
-// DELETE: ?id=<member_id>
 export async function DELETE(req: Request) {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;

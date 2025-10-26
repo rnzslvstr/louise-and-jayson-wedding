@@ -1,21 +1,8 @@
-// src/app/api/rsvp/submit/route.ts
+export const runtime = 'nodejs';
+
 import { NextResponse } from "next/server";
 import supabaseAdmin from "@/lib/supabaseAdmin";
 
-/**
- * Body: {
- *   household_id: string,
- *   decisions: Array<{ member_id: string, status: 'accept' | 'decline' }>,
- *   submitter_email: string,
- *   found_member_id?: string
- * }
- *
- * Behavior:
- *  - Locks updates if current time >= RSVP_LOCK_ISO (if provided)
- *  - Validates all member_ids belong to household_id
- *  - Upserts RSVPs for each member
- *  - Stores submitter_email on each row (best-effort record of who submitted)
- */
 export async function POST(req: Request) {
   try {
     const { household_id, decisions, submitter_email, found_member_id } = await req.json();
@@ -27,7 +14,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Lock check
     const lockIso = process.env.RSVP_LOCK_ISO;
     if (lockIso) {
       const now = new Date();
@@ -40,29 +26,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // Validate household exists
     const { data: household, error: hErr } = await supabaseAdmin
       .from("households")
       .select("id")
       .eq("id", household_id)
       .single();
-
     if (hErr || !household) {
-      return NextResponse.json(
-        { ok: false, error: "Household not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: "Household not found" }, { status: 404 });
     }
 
-    // Load members of household
     const { data: members, error: mErr } = await supabaseAdmin
       .from("members")
       .select("id")
       .eq("household_id", household_id);
-
-    if (mErr) {
-      return NextResponse.json({ ok: false, error: mErr.message }, { status: 500 });
-    }
+    if (mErr) return NextResponse.json({ ok: false, error: mErr.message }, { status: 500 });
 
     const allowedIds = new Set((members ?? []).map((m) => m.id));
     const invalid = (decisions as any[]).find(
@@ -75,8 +52,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Upsert RSVPs
-    // Note: rsvps.member_id is UNIQUE, so insert...on conflict do update
     const rows = decisions.map((d: any) => ({
       member_id: d.member_id,
       status: d.status,
@@ -88,16 +63,10 @@ export async function POST(req: Request) {
     const { error: upErr } = await supabaseAdmin.from("rsvps").upsert(rows, {
       onConflict: "member_id",
     });
-
-    if (upErr) {
-      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
-    }
+    if (upErr) return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message ?? "Submit failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: e?.message ?? "Submit failed" }, { status: 500 });
   }
 }

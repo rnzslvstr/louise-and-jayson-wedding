@@ -1,4 +1,5 @@
-// src/app/api/admin/households/route.ts
+export const runtime = 'nodejs';
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { COOKIE_NAME, verifySession } from "@/lib/auth";
@@ -13,7 +14,6 @@ async function requireSession() {
   return session;
 }
 
-// GET: list households
 export async function GET() {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -29,7 +29,6 @@ export async function GET() {
   return NextResponse.json({ ok: true, households: data });
 }
 
-// POST: create household {label, search_key}
 export async function POST(req: Request) {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;
@@ -57,7 +56,6 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, household: data });
 }
 
-// DELETE: ?id=<household_id>
 export async function DELETE(req: Request) {
   const session = await requireSession();
   if (session instanceof NextResponse) return session;

@@ -18,6 +18,8 @@ type Member = {
   created_at: string;
 };
 
+type Totals = { total: number; accept: number; decline: number; pending: number };
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [loginEmail, setLoginEmail] = useState("");
@@ -35,6 +37,9 @@ export default function AdminPage() {
   const [mLast, setMLast] = useState("");
   const [mEmail, setMEmail] = useState("");
 
+  const [globalTotals, setGlobalTotals] = useState<Totals>({ total: 0, accept: 0, decline: 0, pending: 0 });
+  const [householdTotals, setHouseholdTotals] = useState<Totals>({ total: 0, accept: 0, decline: 0, pending: 0 });
+
   async function checkAuth() {
     try {
       const res = await fetch("/api/admin/households", { method: "GET" });
@@ -50,6 +55,7 @@ export default function AdminPage() {
       const json = await res.json();
       setHouseholds(json.households ?? []);
       setAuthed(true);
+      await refreshGlobalTotals();
     } catch (e: any) {
       setError(String(e));
       setAuthed(false);
@@ -60,6 +66,27 @@ export default function AdminPage() {
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function refreshGlobalTotals() {
+    const res = await fetch("/api/admin/summary");
+    const j = await res.json();
+    if (res.ok && j.ok) {
+      setGlobalTotals(j.totals as Totals);
+    }
+  }
+
+  async function refreshHouseholdTotals(household_id?: string) {
+    const id = household_id ?? selectedHouseholdId;
+    if (!id) {
+      setHouseholdTotals({ total: 0, accept: 0, decline: 0, pending: 0 });
+      return;
+    }
+    const res = await fetch(`/api/admin/summary?household_id=${id}`);
+    const j = await res.json();
+    if (res.ok && j.ok) {
+      setHouseholdTotals(j.totals as Totals);
+    }
+  }
 
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +105,7 @@ export default function AdminPage() {
     setAuthed(true);
     setLoginPassword("");
     await refreshHouseholds();
+    await refreshGlobalTotals();
   }
 
   async function logout() {
@@ -86,6 +114,8 @@ export default function AdminPage() {
     setHouseholds([]);
     setMembers([]);
     setSelectedHouseholdId(null);
+    setGlobalTotals({ total: 0, accept: 0, decline: 0, pending: 0 });
+    setHouseholdTotals({ total: 0, accept: 0, decline: 0, pending: 0 });
   }
 
   async function refreshHouseholds() {
@@ -126,6 +156,7 @@ export default function AdminPage() {
     setHLabel("");
     setHKey("");
     await refreshHouseholds();
+    await refreshGlobalTotals();
   }
 
   async function deleteHousehold(id: string) {
@@ -139,8 +170,10 @@ export default function AdminPage() {
     if (selectedHouseholdId === id) {
       setSelectedHouseholdId(null);
       setMembers([]);
+      setHouseholdTotals({ total: 0, accept: 0, decline: 0, pending: 0 });
     }
     await refreshHouseholds();
+    await refreshGlobalTotals();
   }
 
   async function createMember(e: React.FormEvent) {
@@ -168,6 +201,7 @@ export default function AdminPage() {
     setMLast("");
     setMEmail("");
     await refreshMembers();
+    await refreshHouseholdTotals();
   }
 
   async function deleteMember(id: string) {
@@ -178,6 +212,7 @@ export default function AdminPage() {
       return;
     }
     await refreshMembers();
+    await refreshHouseholdTotals();
   }
 
   const selectedHousehold = useMemo(
@@ -248,6 +283,23 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Summary */}
+      <section className="section">
+        <h2 className="h2">Summary</h2>
+        <div className="grid md:grid-cols-2 gap-4 mt-3">
+          <div className="surface p-4">
+            <h3 className="font-semibold">All Households</h3>
+            <SummaryTable totals={globalTotals} />
+          </div>
+          <div className="surface p-4">
+            <h3 className="font-semibold">
+              {selectedHousehold ? `Selected — ${selectedHousehold.label ?? selectedHousehold.search_key ?? "Household"}` : "Selected Household"}
+            </h3>
+            <SummaryTable totals={householdTotals} />
+          </div>
+        </div>
+      </section>
+
       {/* Households */}
       <section className="section">
         <h2 className="h2">Households</h2>
@@ -279,16 +331,20 @@ export default function AdminPage() {
             </thead>
             <tbody>
               {households.map((h) => (
-                <tr key={h.id} style={{ background: selectedHouseholdId === h.id ? "#fff3e9" : undefined }}>
+                <tr
+                  key={h.id}
+                  style={{ background: selectedHouseholdId === h.id ? "#fff3e9" : undefined }}
+                >
                   <td>{h.label ?? <span className="muted">—</span>}</td>
                   <td>{h.search_key ?? <span className="muted">—</span>}</td>
                   <td>{new Date(h.created_at).toLocaleString()}</td>
                   <td className="space-x-2">
                     <button
                       className="btn btn-neutral"
-                      onClick={() => {
+                      onClick={async () => {
                         setSelectedHouseholdId(h.id);
-                        refreshMembers(h.id);
+                        await refreshMembers(h.id);
+                        await refreshHouseholdTotals(h.id);
                       }}
                     >
                       Select
@@ -390,5 +446,42 @@ export default function AdminPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function SummaryTable({ totals }: { totals: Totals }) {
+  const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Count</th>
+          <th>%</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Accepted</td>
+          <td>{totals.accept}</td>
+          <td>{pct(totals.accept, totals.total)}%</td>
+        </tr>
+        <tr>
+          <td>Declined</td>
+          <td>{totals.decline}</td>
+          <td>{pct(totals.decline, totals.total)}%</td>
+        </tr>
+        <tr>
+          <td>Pending</td>
+          <td>{totals.pending}</td>
+          <td>{pct(totals.pending, totals.total)}%</td>
+        </tr>
+        <tr>
+          <td><strong>Total</strong></td>
+          <td><strong>{totals.total}</strong></td>
+          <td>100%</td>
+        </tr>
+      </tbody>
+    </table>
   );
 }
