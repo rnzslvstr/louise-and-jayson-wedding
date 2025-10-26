@@ -3,8 +3,17 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "Louise & Jayson — Wedding",
-  description: "Wedding details and RSVP",
+  title: {
+    default: "Louise & Jayson — Wedding",
+    template: "%s · Louise & Jayson — Wedding",
+  },
+  description: "Wedding details and RSVP for Louise & Jayson",
+  openGraph: {
+    title: "Louise & Jayson — Wedding",
+    description: "Wedding details and RSVP",
+    type: "website",
+  },
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
